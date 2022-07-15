@@ -126,6 +126,7 @@ func NewSrtSocket(host string, port uint16, options map[string]string) *SrtSocke
 	var err error
 	s.mode, err = s.preconfiguration()
 	if err != nil {
+		fmt.Printf("ERROR: cannot set configuration: %+v\n", err)
 		return nil
 	}
 
