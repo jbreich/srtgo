@@ -434,7 +434,7 @@ func (s SrtSocket) GetSockOptInt64(opt int) (int64, error) {
 
 // GetSockOptString - return string value obtained with srt_getsockopt
 func (s SrtSocket) GetSockOptString(opt int) (string, error) {
-	buf := make([]byte, 256)
+	buf := make([]byte, 512)
 	l := len(buf)
 
 	err := s.getSockOpt(opt, unsafe.Pointer(&buf[0]), &l)
