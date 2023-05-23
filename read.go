@@ -17,6 +17,7 @@ int srt_recvmsg2_wrapped(SRTSOCKET u, char* buf, int len, SRT_MSGCTRL *mctrl, in
 import "C"
 import (
 	"errors"
+	"io"
 	"syscall"
 	"unsafe"
 )
@@ -31,6 +32,9 @@ func srtRecvMsg2Impl(u C.SRTSOCKET, buf []byte, msgctrl *C.SRT_MSGCTRL) (n int, 
 			srterror.wrapSysErr(syscall.Errno(syserr))
 		}
 		err = srterror
+		if srterror == EConnLost {
+			err = io.EOF
+		}
 		n = 0
 	}
 	return
