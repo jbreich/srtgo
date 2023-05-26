@@ -32,6 +32,7 @@ func srtRecvMsg2Impl(u C.SRTSOCKET, buf []byte, msgctrl *C.SRT_MSGCTRL) (n int, 
 			srterror.wrapSysErr(syscall.Errno(syserr))
 		}
 		err = srterror
+		// Simulate EOF in case of connection loss
 		if srterror == EConnLost {
 			err = io.EOF
 		}
