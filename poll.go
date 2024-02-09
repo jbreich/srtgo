@@ -313,6 +313,10 @@ func (pd *pollDesc) unblock(mode PollMode, pollerr, ioready bool) {
 				fmt.Println("Unblock chan was not ready so no message sent")
 			}
 		}
+	} else {
+		if pd.log {
+			fmt.Println("Unblock chan was not called because it is already waiting")
+		}
 	}
 }
 
