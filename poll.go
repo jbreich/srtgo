@@ -279,9 +279,9 @@ func (pd *pollDesc) setDeadline(t time.Time, mode PollMode) {
 }
 
 func (pd *pollDesc) unblock(mode PollMode, pollerr, ioready bool) {
-	if pd.log {
-		fmt.Printf("Unblock called: %v %v %v\n", mode, pollerr, ioready)
-	}
+	//if pd.log {
+	//	fmt.Printf("Unblock called: %v %v %v\n", mode, pollerr, ioready)
+	//}
 	if pollerr {
 		pd.lock.Lock()
 		pd.pollErr = pollerr
@@ -304,9 +304,9 @@ func (pd *pollDesc) unblock(mode PollMode, pollerr, ioready bool) {
 		select {
 		case unblockChan <- struct{}{}:
 			//
-			if pd.log {
-				fmt.Println("Unblock chan written")
-			}
+			//if pd.log {
+			//	fmt.Println("Unblock chan written")
+			//}
 		default:
 			//
 			if pd.log {
