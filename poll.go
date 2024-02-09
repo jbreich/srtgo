@@ -6,6 +6,7 @@ package srtgo
 */
 import "C"
 import (
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -25,14 +26,14 @@ const (
 )
 
 /*
-	pollDesc contains the polling state for the associated SrtSocket
-	closing: socket is closing, reject all poll operations
-	pollErr: an error occured on the socket, indicates it's not useable anymore.
-	unblockRd: is used to unblock the poller when the socket becomes ready for io
-	rdState: polling state for read operations
-	rdDeadline: deadline in NS before poll operation times out, -1 means timedout (needs to be cleared), 0 is without timeout
-	rdSeq: sequence number protects against spurious signalling of timeouts when timer is reset.
-	rdTimer: timer used to enforce deadline.
+pollDesc contains the polling state for the associated SrtSocket
+closing: socket is closing, reject all poll operations
+pollErr: an error occured on the socket, indicates it's not useable anymore.
+unblockRd: is used to unblock the poller when the socket becomes ready for io
+rdState: polling state for read operations
+rdDeadline: deadline in NS before poll operation times out, -1 means timedout (needs to be cleared), 0 is without timeout
+rdSeq: sequence number protects against spurious signalling of timeouts when timer is reset.
+rdTimer: timer used to enforce deadline.
 */
 type pollDesc struct {
 	lock       sync.Mutex
@@ -93,8 +94,13 @@ func (pd *pollDesc) release() {
 	pdPool.Put(pd)
 }
 
-func (pd *pollDesc) wait(mode PollMode) error {
-	defer pd.reset(mode)
+func (pd *pollDesc) wait(mode PollMode, log bool) error {
+	defer func() {
+		pd.reset(mode)
+		if log {
+			fmt.Println("Mode reset")
+		}
+	}()
 	if err := pd.checkPollErr(mode); err != nil {
 		return err
 	}
@@ -103,17 +109,36 @@ func (pd *pollDesc) wait(mode PollMode) error {
 	expiryChan := pd.rdTimer.C
 	timerSeq := int64(0)
 	pd.lock.Lock()
+	if log {
+		fmt.Println("Lock acquired")
+	}
 	if mode == ModeRead {
 		timerSeq = pd.rtSeq
 		pd.rdLock.Lock()
-		defer pd.rdLock.Unlock()
+		if log {
+			fmt.Println("Lock read acquired")
+		}
+		defer func() {
+			pd.rdLock.Unlock()
+			if log {
+				fmt.Println("Lock read released")
+			}
+		}()
 	} else if mode == ModeWrite {
 		timerSeq = pd.wtSeq
 		state = &pd.wrState
 		unblockChan = pd.unblockWr
 		expiryChan = pd.wdTimer.C
 		pd.wrLock.Lock()
-		defer pd.wrLock.Unlock()
+		if log {
+			fmt.Println("Lock write acquired")
+		}
+		defer func() {
+			pd.wrLock.Unlock()
+			if log {
+				fmt.Println("Lock write released")
+			}
+		}()
 	}
 
 	for {
@@ -121,6 +146,9 @@ func (pd *pollDesc) wait(mode PollMode) error {
 		if old == pollReady {
 			*state = pollDefault
 			pd.lock.Unlock()
+			if log {
+				fmt.Println("Lock released - return in loop set wait")
+			}
 			return nil
 		}
 		if atomic.CompareAndSwapInt32(state, pollDefault, pollWait) {
@@ -128,18 +156,33 @@ func (pd *pollDesc) wait(mode PollMode) error {
 		}
 	}
 	pd.lock.Unlock()
+	if log {
+		fmt.Println("Lock released - loop set wait finished")
+	}
 
 wait:
 	for {
 		select {
 		case <-unblockChan:
+			if log {
+				fmt.Println("Unblock chan called - break wait loop")
+			}
 			break wait
 		case <-expiryChan:
+			if log {
+				fmt.Println("Expiry chan called")
+			}
 			pd.lock.Lock()
+			if log {
+				fmt.Println("Lock acquired")
+			}
 			if mode == ModeRead {
 				if timerSeq == pd.rdSeq {
 					pd.rdDeadline = -1
 					pd.lock.Unlock()
+					if log {
+						fmt.Println("Lock released - break wait loop on read mode")
+					}
 					break wait
 				}
 				timerSeq = pd.rtSeq
@@ -148,11 +191,17 @@ wait:
 				if timerSeq == pd.wdSeq {
 					pd.wdDeadline = -1
 					pd.lock.Unlock()
+					if log {
+						fmt.Println("Lock released - break wait loop on write mode")
+					}
 					break wait
 				}
 				timerSeq = pd.wtSeq
 			}
 			pd.lock.Unlock()
+			if log {
+				fmt.Println("Lock released")
+			}
 		}
 	}
 	err := pd.checkPollErr(mode)

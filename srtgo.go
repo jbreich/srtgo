@@ -216,7 +216,7 @@ func (s *SrtSocket) Connect() error {
 	}
 
 	if !s.blocking {
-		if err := s.pd.wait(ModeWrite); err != nil {
+		if err := s.pd.wait(ModeWrite, false); err != nil {
 			return err
 		}
 	}

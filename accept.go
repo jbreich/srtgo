@@ -26,6 +26,7 @@ func srtAcceptImpl(lsn C.SRTSOCKET, addr *C.struct_sockaddr, addrlen *C.int) (C.
 	srterr := C.int(0)
 	syserr := C.int(0)
 	socket := C.srt_accept_wrapped(lsn, addr, addrlen, &srterr, &syserr)
+	fmt.Printf("srt_accept_wrapped returned: %v %v %v\n", socket, srterr, syserr)
 	if srterr != 0 {
 		srterror := SRTErrno(srterr)
 		if syserr < 0 {
@@ -40,7 +41,7 @@ func srtAcceptImpl(lsn C.SRTSOCKET, addr *C.struct_sockaddr, addrlen *C.int) (C.
 func (s SrtSocket) Accept() (*SrtSocket, *net.UDPAddr, error) {
 	var err error
 	if !s.blocking {
-		err = s.pd.wait(ModeRead)
+		err = s.pd.wait(ModeRead, true)
 		if err != nil {
 			return nil, nil, err
 		}
