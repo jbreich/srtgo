@@ -55,6 +55,7 @@ type pollDesc struct {
 	wdTimer    *time.Timer
 	wtSeq      int64
 	pollS      *pollServer
+	log        bool
 }
 
 var pdPool = sync.Pool{
@@ -112,6 +113,7 @@ func (pd *pollDesc) wait(mode PollMode, log bool) error {
 	if log {
 		fmt.Println("Lock acquired")
 	}
+	pd.log = log
 	if mode == ModeRead {
 		timerSeq = pd.rtSeq
 		pd.rdLock.Lock()
@@ -277,6 +279,9 @@ func (pd *pollDesc) setDeadline(t time.Time, mode PollMode) {
 }
 
 func (pd *pollDesc) unblock(mode PollMode, pollerr, ioready bool) {
+	if pd.log {
+		fmt.Printf("Unblock called: %v %v %v\n", mode, pollerr, ioready)
+	}
 	if pollerr {
 		pd.lock.Lock()
 		pd.pollErr = pollerr
@@ -299,8 +304,14 @@ func (pd *pollDesc) unblock(mode PollMode, pollerr, ioready bool) {
 		select {
 		case unblockChan <- struct{}{}:
 			//
+			if pd.log {
+				fmt.Println("Unblock chan written")
+			}
 		default:
 			//
+			if pd.log {
+				fmt.Println("Unblock chan was not ready so no message sent")
+			}
 		}
 	}
 }
